@@ -1,0 +1,97 @@
+```{r message=FALSE, warning=FALSE, message=FALSE}
+#install.packages("rvest")
+#install.packages("data.table")
+#install.packages("dplyr")
+#install.packages("tidyr")
+#install.packages("janitor")
+#install.packages("dplyr")
+
+library(rvest)
+library(data.table)
+library(dplyr)
+library(tidyr)
+library(janitor)
+library(stringr)
+```
+
+#function html_table-lel
+```{r 2}
+get_data = function(lakas_links){
+      webpage <- read_html(lakas_links)
+      tabla = webpage %>% html_nodes('.d-print-flex') %>% html_table() %>% .[[1]] 
+      tabla2 = webpage %>% html_nodes('.d-md-flex') %>% html_table() %>% .[[2]]
+      adat = rbind(tabla,tabla2)
+      re2=rbind(as.matrix(adat[1:23,2]))
+      return(re2)
+}
+```
+
+#ez itt addig fut ameddig nem állítjuk le vagy végig nem ér a budapesti lakásokon.
+```{r 3}
+lakasok = data.frame()
+
+i=1
+while(TRUE){
+f=i
+while(f<i+5){
+url <- paste("https://ingatlan.com/szukites/elado+lakas+nem-berleti-jog?page=",f,sep='')
+webpage <- read_html(url)
+lakas_links = webpage %>% html_nodes('.mb-4') %>% html_attr("href") %>% na.omit() %>% paste("https://ingatlan.com",., sep="")
+link=lakas_links
+ar = webpage %>% html_nodes('.me-3.font-family-secondary') %>%  html_text(trim = TRUE)
+nm = webpage %>% html_nodes('.me-4:nth-child(1) .fw-bold') %>%  html_text(trim = TRUE)
+szoba = webpage %>% html_nodes('.me-4+ .me-4 .fw-bold') %>%  html_text(trim = TRUE)
+
+tovabbi_adatok = sapply(lakas_links, FUN = get_data, USE.NAMES=F)
+tabla=as.data.frame(t(tovabbi_adatok), row.names = F, header=T)
+lakasok = rbind(lakasok,data.frame(link,ar,szoba,nm,tabla))
+f=f+1
+
+print(paste(Sys.time(),"----",f," oldalon járunk és",f*20," lakás adatait töltöttük már le"))
+}
+i=i+5
+
+    Sys.sleep(159)#ez delay az ingatlan.com scrape elleni védelem miatt kell, ha a kód crashel akkor állítsuk be 200sec-re
+}
+```
+
+"Error in open.connection(x, "rb") : HTTP error 500." -> Set Sys.sleep(159) to  Sys.sleep(180) 
+
+
+#Oszlopnevek hozzárendelés az oszlopkhoz, csak futtasd egybe le.
+```{r 4}
+url <- paste("https://ingatlan.com/szukites/elado+lakas+nem-berleti-jog+budapest?page=1")
+webpage <- read_html(url)
+lakas_links = webpage %>% html_nodes('.mb-4') %>% html_attr("href") %>% na.omit() %>% paste("https://ingatlan.com",., sep="")
+webpage <- read_html(lakas_links[1])
+tabla = webpage %>% html_nodes('.d-print-flex') %>% html_table() %>% .[[1]] 
+tabla2 = webpage %>% html_nodes('.d-md-flex') %>% html_table() %>% .[[2]]
+adat = rbind(tabla,tabla2)
+sornevek <- adat[[1]]
+sornevek<- str_replace(sornevek, "\n                            info", "")
+i=0
+while(i<length(sornevek)-1){
+names(lakasok)[(5+i)]=sornevek[1+i]
+i=i+1
+}
+
+```
+
+
+
+```{r 5 minimális adattranszformáció}
+adat = lakasok
+adat$ar <- str_replace(adat$ar, " M Ft", "")
+adat$nm <- str_replace(adat$nm, " m² terület", "")
+adat$nm <- str_replace(adat$nm, " ", "")
+
+
+adat <- separate(adat, col=szoba, into=c("szoba","asdd", 'félszoba'), sep=' ')
+adat$asdd =NULL
+adat$félszoba[is.na(adat$félszoba)] <- 0
+#adat <- separate(adat, col=cim, into=c('utca','kerület'), sep=',')
+#adat$kerület <- str_replace(adat$kerület, ". kerület", "")
+#adat$kerület <- str_replace(adat$kerület, " ", "")
+#adat$kerület <- as.numeric(as.roman(adat$kerület))
+#adat$kerület > 0 #opcionális
+```
