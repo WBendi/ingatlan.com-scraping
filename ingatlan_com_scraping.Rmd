@@ -82,13 +82,29 @@ i=i+1
 ```{r 5 minimális adattranszformáció}
 adat = lakasok
 adat$ar <- str_replace(adat$ar, " M Ft", "")
-adat$nm <- str_replace(adat$nm, " m² terület", "")
+adat$ar <- str_replace(adat$ar, ",", ".")
+adat$nm <- str_replace(adat$nm, " m²", "")
 adat$nm <- str_replace(adat$nm, " ", "")
-
-
+adat$nm <- str_replace(adat$nm, "m2", "")
 adat <- separate(adat, col=szoba, into=c("szoba","asdd", 'félszoba'), sep=' ')
 adat$asdd =NULL
 adat$félszoba[is.na(adat$félszoba)] <- 0
+
+
+delrow <- function(data,first_n_col,value){  
+  i=1#function a sortörlésekhez
+  while (i<first_n_col){                                      #első hány sort szeretnénk megtisztítani a "nincs megadva" adatokbtól.
+     data <- data[(data[,i] != value), ]
+       print(i)
+       i=i+1
+  }
+   return(data)
+}
+adat_szurt = delrow(adat,first_n_col=15,value="nincs megadva")
+
+
+
+colnames(adat)
 #adat <- separate(adat, col=cim, into=c('utca','kerület'), sep=',')
 #adat$kerület <- str_replace(adat$kerület, ". kerület", "")
 #adat$kerület <- str_replace(adat$kerület, " ", "")
